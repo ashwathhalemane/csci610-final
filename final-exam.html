@@ -1,0 +1,315 @@
+<html>
+<head>
+    <title>CSCI-510: Assn 5 - Transformation</title>
+    
+    <!-- include vertex shaders -->
+
+        <!-- vertex Shader -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        #version 300 es
+        in vec3 aVertexPosition;
+        in vec3 aNormal;    // in model coords
+        
+        in vec2 aUV;    // u-v coordinates
+        out vec2 theUV;  // pass uv's onto the fragment shader
+        
+        // Transforms
+        uniform mat4 modelT;
+        uniform mat4 viewT;
+        uniform mat4 projT;
+        
+        // Light parameters
+        uniform vec3 ambientLight;
+        uniform vec3 lightPosition;   // in world coords
+        uniform vec3 lightColor;
+    
+        // object color parameters
+        uniform vec3 baseColor;
+        uniform vec3 specHighlightColor;
+        
+        // Phong parameters
+        uniform float ka;
+        uniform float kd;
+        uniform float ks;
+        uniform float ke;
+        
+        out vec3 theColor;
+        
+        void main()
+        {
+            // All calculations will be done in camera space
+            mat4 modelView = viewT * modelT;
+            mat4 normalmatrix = transpose(inverse (modelView));
+
+            vec3 vcam = (modelView * vec4(aVertexPosition, 1.0)).xyz;
+            vec3 lcam = (viewT * vec4(lightPosition, 1.0)).xyz;
+            vec3 ncam = (normalmatrix * vec4(aNormal, 1.0)).xyz;
+            ncam = faceforward (ncam, vcam, ncam);
+
+
+            vec3 N = normalize (ncam);
+            vec3 L = normalize (lcam - vcam);
+            vec3 R = normalize (reflect (-L, N));
+            vec3 V = -normalize (vcam);
+
+            // individual components
+            vec3 ambient = ka * ambientLight * baseColor;
+            vec3 diffuse = kd * lightColor * baseColor * max (dot(L, N), 0.0);
+            vec3 spec = ks * specHighlightColor * lightColor * pow (max(dot(R, V), 0.0), ke);
+
+            // final color
+            theColor = ambient + diffuse + spec;
+            
+            gl_Position = projT * viewT * modelT * vec4( aVertexPosition, 1.0);
+            
+            theUV = aUV;
+
+        }
+    </script>
+
+     <!-- fragment Shader -->
+     <script id="fragment-shader" type="x-shader/x-fragment">
+         #version 300 es
+         precision mediump float;
+         
+         in vec3 theColor;
+         in vec2 theUV;
+         
+         // Color that is the result of this shader
+         out vec4 fragColor;
+
+         void main(void) {
+             fragColor = vec4 (theColor.xyz, 1.0);
+         }
+
+     </script>
+    
+    
+    <!--trying to get basic texture to work -->
+        <!-- vertex Shader -->
+    <script id="sphereMap-V"  type="x-shader/x-vertex">
+    #version 300 es
+    precision mediump float;
+    // Vertex shader for phong illumination model
+    // Per vertex shading
+
+    // Vertex Attributes
+    in vec3 aVertexPosition; // in model coords
+    in vec2 aUV;    // u-v coordinates
+    in vec3 aNormal;
+    
+    // outputs
+    out vec2 theUV;  // pass uv's onto the fragment shader
+    
+    // for object rotation
+    uniform vec3 theta;
+    
+    // Transforms
+    uniform mat4 modelT;
+    uniform mat4 viewT;
+    uniform mat4 projT;
+    
+    
+        // Light parameters
+        uniform vec3 ambientLight;
+        uniform vec3 lightPosition;   // in world coords
+        uniform vec3 lightColor;
+    
+        // object color parameters
+        uniform vec3 baseColor;
+        uniform vec3 specHighlightColor;
+        
+        // Phong parameters
+        uniform float ka;
+        uniform float kd;
+        uniform float ks;
+        uniform float ke;
+        
+        out vec3 theColor;
+      
+      
+    void main()
+    {
+    
+            // All calculations will be done in camera space
+            mat4 modelView = viewT * modelT;
+            mat4 normalmatrix = transpose(inverse (modelView));
+
+            vec3 vcam = (modelView * vec4(aVertexPosition, 1.0)).xyz;
+            vec3 lcam = (viewT * vec4(lightPosition, 1.0)).xyz;
+            vec3 ncam = (normalmatrix * vec4(aNormal, 1.0)).xyz;
+            ncam = faceforward (ncam, vcam, ncam);
+
+
+            vec3 N = normalize (ncam);
+            vec3 L = normalize (lcam - vcam);
+            vec3 R = normalize (reflect (-L, N));
+            vec3 V = -normalize (vcam);
+
+            // individual components
+            vec3 ambient = ka * ambientLight * baseColor;
+            vec3 diffuse = kd * lightColor * baseColor * max (dot(L, N), 0.0);
+            vec3 spec = ks * specHighlightColor * lightColor * pow (max(dot(R, V), 0.0), ke);
+
+            // final color
+            theColor = ambient + diffuse + spec;
+            
+        // Compute the sines and cosines of each rotation
+        // about each axis
+        vec3 angles = radians( theta );
+        vec3 c = cos( angles );
+        vec3 s = sin( angles );
+
+        // rotation matrices
+        mat4 rx = mat4 ( 1.0,  0.0,  0.0,  0.0,
+                         0.0,  c.x,  s.x,  0.0,
+                         0.0, -s.x,  c.x,  0.0,
+                         0.0,  0.0,  0.0,  1.0 );
+
+        mat4 ry = mat4 ( c.y,  0.0, -s.y,  0.0,
+                         0.0,  1.0,  0.0,  0.0,
+                         s.y,  0.0,  c.y,  0.0,
+                         0.0,  0.0,  0.0,  1.0 );
+
+         mat4 rz = mat4 ( c.z,  s.z,  0.0,  0.0,
+                         -s.z,  c.z,  0.0,  0.0,
+                         0.0,  0.0,  1.0,  0.0,
+                         0.0,  0.0,  0.0,  1.0 );
+                         
+        // pass uvs to fragment shader
+        theUV = aUV;
+
+        // transform vertex to clip space
+        //gl_Position = rz * ry * rx * vec4 (aVertexPosition, 1.0);
+        gl_Position = projT * viewT * modelT * vec4( aVertexPosition, 1.0);
+    }
+
+    </script>
+    
+         <!-- fragment Shader -->
+     <script id="sphereMap-F" type="x-shader/x-fragment">
+         #version 300 es
+
+         // Fragment shader for phong illumination model
+         // Per vertex shading
+
+         precision lowp float;
+             
+         // uvs passed in from vertex shader
+         in vec2 theUV;
+         in vec3 theColor;
+         
+         uniform vec4 colorChange;
+         
+         // the texture to use
+         uniform sampler2D theTexture;
+         
+         // Color that is the result of this shader
+         out vec4 fragColor;
+
+         void main(void) {
+            
+            //fragColor = texture (theTexture, theUV) * colorChange;
+            fragColor = texture (theTexture, theUV) * vec4 (theColor.xyz, 1.0 );
+             
+         }
+
+    </script>
+
+    <!-- edited from assignment 7-->
+    <!-- fragment Shader -->
+    
+    <script id="gradientMap-F" type="x-shader/x-fragment">
+        #version 300 es
+
+        // Fragment shader for phong illumination model
+        // Per vertex shading
+
+        precision lowp float;
+            
+        // uvs passed in from vertex shader
+        in vec2 theUV;
+   
+        
+        // the texture to use
+        uniform sampler2D theTexture;
+        
+        // Color that is the result of this shader
+        out vec4 fragColor;
+
+       //procedural program for creating a gradient
+       
+       vec4 gradient(vec2 uv) {
+         float s = uv.s;
+         float t = uv.t;
+         vec3 color = vec3(.50, 0.50, 0.50);
+         
+         float percent;
+         percent = s;
+         return vec4(color * s, 1.0);
+       }
+       
+        void main(void) {
+           fragColor = gradient( theUV );
+            
+        }
+
+   </script>
+    
+     <!-- Matrix library and code for standard transformations -->
+     <script type="text/javascript" src="gl-matrix-min.js"></script>
+    
+    <!-- include the main final functions -->
+    <script type="text/javascript" src="./finalMain.js"></script>
+    
+    <!-- shape functions -->
+    <script type="text/javascript" src="./cgIShape.js"></script>
+    <script type="text/javascript" src="./myShapes-min.js"></script>
+    
+    <!-- keyboard functions -->
+    <script type="text/javascript" src="./event.js"></script>
+    
+    <!-- texture images -->
+    <img id="wood-texture" src="wood.jpg" style="display: none;"> </img>
+    <img id="sky-texture" src="sky.jpg" style="display: none;"> </img>
+    <img id="base-texture" src="base.jpg" style="display: none;"> </img>
+    <img id="head-texture" src="head.jpg" style="display: none;"> </img>
+    <img id="lamp-texture" src="lamp_head.jpg" style="display: none;"> </img>
+  <script type="text/javascript">
+    // Call init once the webpage has loaded
+    window.onload = init;
+  </script>
+</head>
+
+<body>
+  <h1>CSCI-510: Final Exam Image</h1>
+  <table>
+      <tr>
+          <td><canvas id="webgl-canvas" width="800" height="800">
+            Your browser does not support the HTML5 canvas element.
+          </canvas></td>
+          
+          <td>
+<!--
+              <h3>Controls</h3>
+              
+              <table border="1">
+              <tbody>
+              <tr>
+              <td> </td>
+              <td>List any keyboard controls here</td>
+              </tr>
+              </tbody>
+              </table>
+-->
+              <img src="luxo.jpg" alt="Original Concept" width="600" height="400">
+              
+          </td>
+      </tr>
+  </table>
+  
+  
+
+</body>
+</html>
+
